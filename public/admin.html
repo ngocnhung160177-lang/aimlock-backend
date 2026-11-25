@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIMLOCK ADMIN</title>
+<style>
+body{font-family:system-ui;background:#0a1020;color:#eef4ff;margin:0;padding:22px}
+main{max-width:650px;margin:auto}
+.box{background:#131e32;border:1px solid #2b3b55;border-radius:16px;padding:18px;margin:14px 0}
+input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #344761;background:#091323;color:white;width:100%;margin:6px 0;box-sizing:border-box}
+button{background:#52d7d0;color:#06121b;font-weight:700;border:0}
+small{color:#a7b5ca}
+.key{overflow-wrap:anywhere;color:#78f0b5}
+li{margin:12px 0;padding:10px;background:#0b1526;border-radius:9px}
+</style>
+</head>
+<body>
+<main>
+<h1>🔐 AIMLOCK ADMIN</h1>
+<p><small>Quản lý key VIP và key thường. Giữ bí mật Admin Key.</small></p>
+
+<section class="box">
+<h3>Đăng nhập Admin</h3>
+<input id="token" type="password" placeholder="ADMIN_KEY">
+<button onclick="loadKeys()">Đăng nhập / tải danh sách</button>
+</section>
+
+<section class="box">
+<h3>Tạo key mới</h3>
+<select id="tier">
+<option value="VIP">VIP</option>
+<option value="NORMAL">Thường</option>
+</select>
+<input id="days" type="number" min="1" max="3650" placeholder="Số ngày (để trống = không hết hạn)">
+<button onclick="createKey()">Tạo key ngẫu nhiên</button>
+<p id="newkey" class="key"></p>
+</section>
+
+<section class="box">
+<h3>Danh sách key</h3>
+<button onclick="loadKeys()">Làm mới</button>
+<ul id="list"></ul>
+</section>
+</main>
+
+<script>
+const api=location.origin;
+
+function headers(){
+return {
+"Content-Type":"application/json",
+"Authorization":"Bearer "+document.getElementById("token").value
+};
+}
+
+async function loadKeys(){
+try{
+let r=await fetch(api+"/api/admin/keys",{headers:headers()});
+let d=await r.json();
+if(!r.ok)throw Error(d.error||"Không thể đăng nhập");
+
+document.getElementById("list").innerHTML=d.keys.map(k=>
+`<li>#${k.id} • ${k.tier} • ****${k.hint}<br>
+<small>${k.revoked?"Đã thu hồi":k.expires_at||"Không hết hạn"}</small>
+${k.revoked?"":`<button onclick="revoke(${k.id})">Thu hồi</button>`}
+</li>`
+).join("")||"<li>Chưa có key</li>";
+}catch(e){alert(e.message)}
+}
+
+async function createKey(){
+try{
+let raw=document.getElementById("days").value;
+let r=await fetch(api+"/api/admin/keys",{
+method:"POST",
+headers:headers(),
+body:JSON.stringify({
+tier:document.getElementById("tier").value,
+days:raw?Number(raw):null
+})
+});
+let d=await r.json();
+if(!r.ok)throw Error(d.error||"Tạo key thất bại");
+
+document.getElementById("newkey").textContent=
+"Key mới (hãy sao chép và lưu ngay): "+d.key;
+await loadKeys();
+}catch(e){alert(e.message)}
+}
+
+async function revoke(id){
+if(!confirm("Thu hồi key này?"))return;
+try{
+let r=await fetch(api+"/api/admin/keys/"+id+"/revoke",{
+method:"POST",headers:headers()
+});
+if(!r.ok)throw Error("Thu hồi thất bại");
+loadKeys();
+}catch(e){alert(e.message)}
+}
+</script>
+</body>
+</html>
